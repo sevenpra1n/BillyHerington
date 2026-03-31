@@ -7,6 +7,7 @@ using Terraria.Audio;
 using System;
 using Terraria.GameContent.ItemDropRules;
 using danikherington.Items;
+using danikherington.Items.Summons;
 using ReLogic.Content;
 using ReLogic.Utilities;
 
@@ -292,6 +293,9 @@ namespace danikherington.NPCs.Bosses
         public override void ModifyNPCLoot(NPCLoot npcLoot)
         {
             npcLoot.Add(ItemDropRule.BossBag(ModContent.ItemType<BossBag>()));
+            // Drop the summon item so players can fight the boss again without the portal.
+            // ItemDropRule.Common drops 1 item at 100 % chance (no extra conditions).
+            npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<MasterToken>()));
         }
 
     }
