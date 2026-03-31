@@ -1,3 +1,0 @@
-displayName = Danik Herington Mod
-author = sevenpra1n
-version = 0.1.2
