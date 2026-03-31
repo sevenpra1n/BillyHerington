@@ -1,0 +1,36 @@
+NPCs: {
+	DanikHeadBoss.DisplayName: Danik Head Boss
+	DungeonMaster.DisplayName: Dungeon Master
+}
+
+Items: {
+	MasterToken: {
+		Tooltip: ""
+		DisplayName: Призыватель DungeonMaster!
+	}
+
+	"Ярость Даника": {
+		Tooltip: ""
+		DisplayName: Ярость Даника
+	}
+
+	DanikHeadSummon: {
+		Tooltip: ""
+		DisplayName: Призыватель прайма Даника
+	}
+
+	BossBag: {
+		Tooltip: ""
+		DisplayName: Мешочек DungeonMaster..
+	}
+
+	BillyHerringtonBag: {
+		Tooltip: ""
+		DisplayName: Мешочек Билли..
+	}
+}
+
+Projectiles: {
+	FriendHeadProjectile.DisplayName: Friend Head Projectile
+	DumbbellProjectile.DisplayName: Dumbbell Projectile
+}
