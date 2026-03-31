@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
@@ -198,17 +199,12 @@ namespace danikherington
                 for (int y = bottom - 14; y < bottom - 2; y++)
                     WorldGen.KillTile(x, y, noItem: true);
 
-            // --- 10. Staircase opening in mid-floor divider ---
-            for (int x = cx - 5; x <= cx + 5; x++)
+            // --- 10. Staircase opening in mid-floor divider (widened for staircase access) ---
+            for (int x = cx - 5; x <= cx + 8; x++)
                 for (int y = midFloorTop; y < midFloorTop + 3; y++)
                     WorldGen.KillTile(x, y, noItem: true);
 
             // --- 11. Portal (first floor, center) ---
-            // Portal is 6x6 with Origin(3,5).  PlaceObject(cx, portalBaseY) puts the
-            // origin tile at (cx, portalBaseY), so the portal spans:
-            //   x: cx-3 .. cx+2
-            //   y: portalBaseY-5 .. portalBaseY
-            // Solid obsidian is at portalBaseY+1 = bottom-2  ✓
             for (int x = cx - 4; x <= cx + 3; x++)
                 for (int y = portalBaseY - 6; y <= portalBaseY; y++)
                 {
@@ -217,20 +213,208 @@ namespace danikherington
                 }
             WorldGen.PlaceObject(cx, portalBaseY, ModContent.TileType<MasterPortal>());
 
-            // --- 12. Chests on second floor (sitting on the mid-floor divider) ---
-            // PlaceChest: x = left tile of chest, y = bottom tile of chest;
-            // the solid anchor is the divider row at midFloorTop.
+            // --- 12. Chests on second floor ---
             int chestY = midFloorTop - 1;
             PlaceFortressChest(left + 12,      chestY);
             PlaceFortressChest(cx - 1,         chestY);
             PlaceFortressChest(left + w - 14,  chestY);
 
-            // --- 13. Torches ---
-            WorldGen.PlaceTile(left + WallThick + 2, bottom - 8,       TileID.Torches, true);
-            WorldGen.PlaceTile(left + w - WallThick - 3, bottom - 8,   TileID.Torches, true);
-            WorldGen.PlaceTile(cx,                       bottom - 8,    TileID.Torches, true);
-            WorldGen.PlaceTile(left + WallThick + 2, midFloorTop - 8,  TileID.Torches, true);
-            WorldGen.PlaceTile(left + w - WallThick - 3, midFloorTop - 8, TileID.Torches, true);
+            // --- 13. Demon torches in strategic locations ---
+            // First floor (wall-mounted positions)
+            PlaceDemonTorch(left + WallThick + 2, bottom - 8);
+            PlaceDemonTorch(left + WallThick + 2, bottom - 20);
+            PlaceDemonTorch(left + w - WallThick - 3, bottom - 8);
+            PlaceDemonTorch(left + w - WallThick - 3, bottom - 20);
+            PlaceDemonTorch(cx - 10, bottom - 8);
+            PlaceDemonTorch(cx + 10, bottom - 8);
+            // Second floor
+            PlaceDemonTorch(left + WallThick + 2, midFloorTop - 8);
+            PlaceDemonTorch(left + WallThick + 2, midFloorTop - 18);
+            PlaceDemonTorch(left + w - WallThick - 3, midFloorTop - 8);
+            PlaceDemonTorch(left + w - WallThick - 3, midFloorTop - 18);
+            PlaceDemonTorch(cx, midFloorTop - 8);
+
+            // --- 14. Staircase: platforms from 1st floor up to mid-floor opening ---
+            // Goes from near the right wall diagonally up-left to the opening edge.
+            {
+                int sX0 = cx + 6;                        // start at opening right edge
+                int sY0 = midFloorTop + 3;               // just below the opening (top of 1st floor)
+                int sX1 = left + w - WallThick - 2;      // near right wall
+                int sY1 = bottom - 4;                    // just above obsidian floor
+                int dxS = sX1 - sX0;                     // horizontal span
+                int dyS = sY1 - sY0;                     // vertical span
+                if (dxS > 0)
+                {
+                    for (int step = 0; step <= dxS; step++)
+                    {
+                        int sx = sX0 + step;
+                        int sy = sY0 + (int)Math.Round((double)step * dyS / dxS);
+                        // Clear headroom above each step
+                        for (int hy = sy - 3; hy < sy; hy++)
+                            WorldGen.KillTile(sx, hy, noItem: true);
+                        WorldGen.PlaceTile(sx, sy, TileID.Platforms, true, false, -1, 0);
+                    }
+                }
+            }
+
+            // --- 15. Stone arch over the portal ---
+            // Left pillar
+            for (int y = portalBaseY - 5; y <= portalBaseY; y++)
+                SafePlaceTile(cx - 4, y, Stone);
+            // Right pillar
+            for (int y = portalBaseY - 5; y <= portalBaseY; y++)
+                SafePlaceTile(cx + 3, y, Stone);
+            // Top beam
+            for (int x = cx - 4; x <= cx + 3; x++)
+                SafePlaceTile(x, portalBaseY - 6, Stone);
+            // Arch curve (trim corners to simulate arch)
+            WorldGen.KillTile(cx - 4, portalBaseY - 6, noItem: true);
+            WorldGen.KillTile(cx + 3, portalBaseY - 6, noItem: true);
+            SafePlaceTile(cx - 3, portalBaseY - 7, Stone);
+            SafePlaceTile(cx + 2, portalBaseY - 7, Stone);
+            SafePlaceTile(cx - 1, portalBaseY - 8, Stone);
+            SafePlaceTile(cx,     portalBaseY - 8, Stone);
+            // Re-clear portal interior in case arch blocks overlapped
+            for (int x = cx - 3; x <= cx + 2; x++)
+                for (int y = portalBaseY - 5; y <= portalBaseY; y++)
+                    WorldGen.KillTile(x, y, noItem: true);
+
+            // --- 16. Mosaic floor around portal ---
+            // Alternating GrayBrick / MarbleBlock pattern on the obsidian floor rows
+            for (int mx = cx - 8; mx <= cx + 7; mx++)
+            {
+                int mosaicY = bottom - 2;
+                ushort mosaicTile = ((mx - (cx - 8)) % 2 == 0) ? TileID.GrayBrick : TileID.MarbleBlock;
+                if (mx >= left + WallThick && mx < left + w - WallThick)
+                {
+                    WorldGen.KillTile(mx, mosaicY, noItem: true);
+                    SafePlaceTile(mx, mosaicY, mosaicTile);
+                }
+            }
+
+            // --- 17. Entrance arches (stone arch frame above each doorway) ---
+            // Left entrance arch: top lintel + jambs
+            int lEntX = left + WallThick; // first interior column after left wall
+            for (int x = lEntX - 1; x <= lEntX + 1; x++)
+                SafePlaceTile(x, bottom - 15, Stone);               // lintel
+            SafePlaceTile(lEntX - 1, bottom - 14, Stone);           // left jamb top
+            SafePlaceTile(lEntX + 1, bottom - 14, Stone);           // right jamb top
+
+            // Right entrance arch
+            int rEntX = left + w - WallThick - 1;
+            for (int x = rEntX - 1; x <= rEntX + 1; x++)
+                SafePlaceTile(x, bottom - 15, Stone);
+            SafePlaceTile(rEntX - 1, bottom - 14, Stone);
+            SafePlaceTile(rEntX + 1, bottom - 14, Stone);
+
+            // --- 18. Decorative banners on 1st-floor walls ---
+            // Left wall banners
+            WorldGen.PlaceTile(left + WallThick - 1, bottom - 20, TileID.Banners, true, false, -1, 0);
+            WorldGen.PlaceTile(left + WallThick - 1, bottom - 30, TileID.Banners, true, false, -1, 0);
+            // Right wall banners
+            WorldGen.PlaceTile(left + w - WallThick, bottom - 20, TileID.Banners, true, false, -1, 0);
+            WorldGen.PlaceTile(left + w - WallThick, bottom - 30, TileID.Banners, true, false, -1, 0);
+            // 2nd floor banners
+            WorldGen.PlaceTile(left + WallThick - 1, midFloorTop - 12, TileID.Banners, true, false, -1, 0);
+            WorldGen.PlaceTile(left + w - WallThick,  midFloorTop - 12, TileID.Banners, true, false, -1, 0);
+
+            // --- 19. Platform shelves on 1st-floor walls ---
+            // Short platform shelves mounted on the walls (for decoration / item storage feel)
+            for (int x = left + WallThick; x < left + WallThick + 4; x++)
+                WorldGen.PlaceTile(x, bottom - 18, TileID.Platforms, true, false, -1, 0);
+            for (int x = left + w - WallThick - 4; x < left + w - WallThick; x++)
+                WorldGen.PlaceTile(x, bottom - 18, TileID.Platforms, true, false, -1, 0);
+            // 2nd floor shelves
+            for (int x = left + WallThick; x < left + WallThick + 4; x++)
+                WorldGen.PlaceTile(x, midFloorTop - 15, TileID.Platforms, true, false, -1, 0);
+            for (int x = left + w - WallThick - 4; x < left + w - WallThick; x++)
+                WorldGen.PlaceTile(x, midFloorTop - 15, TileID.Platforms, true, false, -1, 0);
+
+            // --- 20. Traps at entrances (dart traps + stone pressure plates + red wire) ---
+            // Left entrance
+            PlaceEntryTrap(left + 1, bottom - 10, bottom - 3, firesLeft: false);
+            // Right entrance
+            PlaceEntryTrap(left + w - 2, bottom - 10, bottom - 3, firesLeft: true);
+
+            // --- 21. Traps on 2nd floor ---
+            PlaceFloorTrap(left + WallThick + 6,       midFloorTop - 20, midFloorTop - 1, firesRight: true);
+            PlaceFloorTrap(left + w - WallThick - 7,   midFloorTop - 20, midFloorTop - 1, firesRight: false);
+            // Ceiling dart traps hanging from the 2nd-floor ceiling, plates on the floor
+            PlaceCeilingDart(cx - 12, top + 19, midFloorTop - 1);
+            PlaceCeilingDart(cx + 12, top + 19, midFloorTop - 1);
+
+            // --- 22. Spike traps along the staircase (hazard for intruders) ---
+            {
+                int sX0 = cx + 8;
+                int sX1 = left + w - WallThick - 4;
+                int sY0 = midFloorTop + 5;
+                int sY1 = bottom - 6;
+                int dxS = sX1 - sX0;
+                int dyS = sY1 - sY0;
+                if (dxS > 0)
+                {
+                    for (int step = 2; step <= dxS - 2; step += 4) // every 4th stair step
+                    {
+                        int sx = sX0 + step;
+                        int sy = sY0 + (int)Math.Round((double)step * dyS / dxS);
+                        // Place spike just below the platform
+                        WorldGen.PlaceTile(sx, sy + 1, TileID.Spikes, true, true);
+                        // Pressure plate ON the platform step
+                        WorldGen.PlaceTile(sx, sy, TileID.PressurePlates, true, false, -1, 0);
+                        // Wire: plate to spike (just one tile apart)
+                        Main.tile[sx, sy].RedWire     = true;
+                        Main.tile[sx, sy + 1].RedWire = true;
+                    }
+                }
+            }
+        }
+
+        // Place a Demon Torch (style = TorchID.Demon) at a wall position.
+        private static void PlaceDemonTorch(int x, int y)
+        {
+            if (!WorldGen.InWorld(x, y)) return;
+            WorldGen.PlaceTile(x, y, TileID.Torches, true, false, -1, TorchID.Demon);
+        }
+
+        // Dart trap + pressure plate wired together at a side-entrance.
+        // The dart trap is placed at (wallX, trapY) and fires horizontally.
+        // The pressure plate sits on the floor at floorY.
+        private static void PlaceEntryTrap(int wallX, int trapY, int floorY, bool firesLeft)
+        {
+            if (!WorldGen.InWorld(wallX, trapY) || !WorldGen.InWorld(wallX, floorY)) return;
+
+            int dartStyle = firesLeft ? 1 : 0; // 0 = fires right, 1 = fires left
+            WorldGen.PlaceTile(wallX, trapY, TileID.DartTrap, true, false, -1, dartStyle);
+            WorldGen.PlaceTile(wallX, floorY, TileID.PressurePlates, true, false, -1, 0);
+
+            // Vertical red wire connecting pressure plate to dart trap
+            for (int wy = Math.Min(trapY, floorY); wy <= Math.Max(trapY, floorY); wy++)
+                Main.tile[wallX, wy].RedWire = true;
+        }
+
+        // Dart trap on a wall inside a floor, firing horizontally.
+        private static void PlaceFloorTrap(int wallX, int trapY, int plateY, bool firesRight)
+        {
+            if (!WorldGen.InWorld(wallX, trapY) || !WorldGen.InWorld(wallX, plateY)) return;
+
+            int dartStyle = firesRight ? 0 : 1;
+            WorldGen.PlaceTile(wallX, trapY, TileID.DartTrap, true, false, -1, dartStyle);
+            WorldGen.PlaceTile(wallX, plateY, TileID.PressurePlates, true, false, -1, 0);
+
+            for (int wy = Math.Min(trapY, plateY); wy <= Math.Max(trapY, plateY); wy++)
+                Main.tile[wallX, wy].RedWire = true;
+        }
+
+        // Dart trap mounted on ceiling, aimed downward (vertical dart using style).
+        private static void PlaceCeilingDart(int x, int ceilingY, int plateY)
+        {
+            if (!WorldGen.InWorld(x, ceilingY) || !WorldGen.InWorld(x, plateY)) return;
+
+            WorldGen.PlaceTile(x, ceilingY, TileID.DartTrap, true, false, -1, 2); // style 2 = fires down
+            WorldGen.PlaceTile(x, plateY,   TileID.PressurePlates, true, false, -1, 0);
+
+            for (int wy = ceilingY; wy <= plateY; wy++)
+                Main.tile[x, wy].RedWire = true;
         }
 
         private static void SafePlaceTile(int x, int y, ushort type)
@@ -259,7 +443,7 @@ namespace danikherington
             chest.item[slot].stack = WorldGen.genRand.Next(20, 75);
             slot++;
 
-            int[] loot = { ItemID.Stone, ItemID.Wood, ItemID.Torch, ItemID.IronOre };
+            int[] loot = { ItemID.StoneBlock, ItemID.Wood, ItemID.Torch, ItemID.IronOre };
             chest.item[slot] = new Item();
             chest.item[slot].SetDefaults(loot[WorldGen.genRand.Next(loot.Length)]);
             chest.item[slot].stack = WorldGen.genRand.Next(10, 35);
